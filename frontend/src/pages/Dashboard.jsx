@@ -1,0 +1,197 @@
+import { useEffect, useState, useContext } from 'react';
+import { motion } from 'framer-motion';
+import { io } from 'socket.io-client';
+import GlassCard from '../components/GlassCard';
+import { Lightbulb, Thermometer, ShieldAlert, Power, Activity, ShieldCheck, Home as HomeIcon, Moon, Zap, Wifi } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AuthContext } from '../context/AuthContext';
+
+const energyData = [
+  { time: '00:00', power: 240 },
+  { time: '04:00', power: 139 },
+  { time: '08:00', power: 980 },
+  { time: '12:00', power: 1200 },
+  { time: '16:00', power: 1500 },
+  { time: '20:00', power: 800 },
+  { time: '24:00', power: 300 },
+];
+
+export default function Dashboard() {
+  const { user } = useContext(AuthContext);
+  const [devices, setDevices] = useState([]);
+  const [fsmLog, setFsmLog] = useState([]);
+  const [homeState, setHomeState] = useState('HOME');
+
+  useEffect(() => {
+    const socket = io(`${import.meta.env.VITE_API_URL}`);
+    
+    fetch(`${import.meta.env.VITE_API_URL}/api/devices`)
+      .then(res => res.json())
+      .then(data => setDevices(data));
+
+    fetch(`${import.meta.env.VITE_API_URL}/api/fsm/state`)
+      .then(res => res.json())
+      .then(data => setHomeState(data.homeMode));
+
+    fetch(`${import.meta.env.VITE_API_URL}/api/fsm/logs`)
+      .then(res => res.json())
+      .then(data => setFsmLog(data));
+
+    socket.on('devices_updated', setDevices);
+    socket.on('fsm_action', (log) => {
+      setFsmLog(prev => [log, ...prev].slice(0, 20));
+    });
+    socket.on('fsm_state_change', setHomeState);
+
+    return () => socket.disconnect();
+  }, []);
+
+  const changeHomeState = async (state) => {
+    await fetch(`${import.meta.env.VITE_API_URL}/api/fsm/state`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state })
+    });
+  };
+
+  const getIcon = (type, status) => {
+    const color = status === 'on' || status === 'triggered' ? 'text-brand-400' : 'text-gray-500';
+    switch(type) {
+      case 'light': return <Lightbulb className={color} size={24} />;
+      case 'ac': return <Thermometer className={color} size={24} />;
+      case 'alarm': return <ShieldAlert className={status === 'triggered' ? 'text-red-500' : 'text-gray-500'} size={24} />;
+      default: return <Power className={color} size={24} />;
+    }
+  };
+
+  const activeDevices = devices.filter(d => d.status === 'on' || d.status === 'triggered').length;
+
+  return (
+    <div className="space-y-8 pb-10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+          <h2 className="text-4xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-gray-400 mt-2 text-lg">Welcome home, {user?.name}. The system is monitoring your space.</p>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="glass px-6 py-3 rounded-full flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-500"></span>
+            </span>
+            <span className="font-semibold text-brand-400">{homeState}</span>
+          </div>
+          <div className="w-px h-6 bg-white/20" />
+          <div className="flex items-center gap-2 text-gray-300 text-sm">
+            <Wifi size={16} /> All systems online
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Top Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { label: 'Total Devices', value: devices.length, icon: Power, color: 'text-blue-400' },
+          { label: 'Active Devices', value: activeDevices, icon: Activity, color: 'text-brand-400' },
+          { label: 'Energy Usage', value: '4.2 kWh', icon: Zap, color: 'text-yellow-400' },
+          { label: 'Security', value: homeState === 'ALERT' ? 'BREACHED' : 'Secure', icon: homeState === 'ALERT' ? ShieldAlert : ShieldCheck, color: homeState === 'ALERT' ? 'text-red-500' : 'text-green-400' },
+        ].map((stat, i) => (
+          <GlassCard key={i} className="flex items-center justify-between" transition={{ delay: i * 0.1 }}>
+            <div>
+              <p className="text-gray-400 text-sm font-medium">{stat.label}</p>
+              <h3 className="text-3xl font-bold mt-1">{stat.value}</h3>
+            </div>
+            <div className={`p-4 rounded-2xl bg-dark-800/80 border border-white/5 ${stat.color}`}>
+              <stat.icon size={28} />
+            </div>
+          </GlassCard>
+        ))}
+      </div>
+
+      {/* Quick State Controls */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          { state: 'HOME', icon: HomeIcon, desc: 'Normal operation' },
+          { state: 'AWAY', icon: ShieldAlert, desc: 'Security arms, devices off' },
+          { state: 'NIGHT', icon: Moon, desc: 'Dim lights, quiet mode' }
+        ].map((mode, i) => (
+          <motion.button
+            key={i}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => changeHomeState(mode.state)}
+            className={`p-6 rounded-2xl border text-left transition-all ${homeState === mode.state ? 'bg-brand-500/20 border-brand-500 shadow-[0_0_20px_rgba(20,184,166,0.3)]' : 'glass hover:bg-white/10 border-white/10'}`}
+          >
+            <div className="flex items-center gap-4">
+              <mode.icon size={32} className={homeState === mode.state ? 'text-brand-400' : 'text-gray-400'} />
+              <div>
+                <h3 className="text-xl font-bold">{mode.state}</h3>
+                <p className="text-gray-400 text-sm">{mode.desc}</p>
+              </div>
+            </div>
+          </motion.button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <GlassCard className="col-span-2 h-[450px] flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-semibold text-xl">Energy Analytics</h3>
+            <span className="text-xs font-medium px-2 py-1 bg-brand-500/20 text-brand-400 rounded-full">Live Data</span>
+          </div>
+          <div className="flex-1 w-full min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={energyData}>
+                <defs>
+                  <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.4}/>
+                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                <XAxis dataKey="time" stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} axisLine={false} tickLine={false} />
+                <YAxis stroke="#94a3b8" tick={{fill: '#94a3b8', fontSize: 12}} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                  itemStyle={{ color: '#14b8a6', fontWeight: 'bold' }}
+                />
+                <Area type="monotone" dataKey="power" stroke="#2dd4bf" strokeWidth={4} fillOpacity={1} fill="url(#colorPower)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="h-[450px] flex flex-col">
+          <h3 className="font-semibold text-xl mb-4 flex items-center gap-2">
+            <Activity className="text-brand-400" size={20} />
+            FSM Live Feed
+          </h3>
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+            {fsmLog.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-gray-500 text-sm">Waiting for events...</div>
+            ) : (
+              fsmLog.map((log, i) => (
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  key={log._id || i} 
+                  className="p-4 rounded-xl bg-dark-800/60 border border-white/5 relative overflow-hidden group hover:border-white/10 transition-colors"
+                >
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-brand-500" />
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-xs font-mono text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded">
+                      [{new Date(log.timestamp).toLocaleTimeString()}]
+                    </span>
+                    <span className="text-xs text-gray-500">{log.stateAtTime}</span>
+                  </div>
+                  <p className="text-sm font-semibold text-white mt-2">{log.event}</p>
+                  <p className="text-xs text-gray-400 mt-1">{log.action}</p>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </GlassCard>
+      </div>
+    </div>
+  );
+}
