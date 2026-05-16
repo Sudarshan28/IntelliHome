@@ -123,6 +123,7 @@ export default function Dashboard() {
             <div className={`p-4 rounded-2xl bg-dark-800/80 border border-white/5 ${stat.color}`}>
               <stat.icon size={28} />
             </div>
+            </GlassCard>
           </motion.div>
         ))}
       </motion.div>
