@@ -141,7 +141,7 @@ export default function Dashboard() {
             whileTap={{ scale: 0.92 }}
             onClick={() => changeHomeState(mode.state)}
             style={{ perspective: 1000 }}
-            className={`p-6 rounded-2xl border text-left transition-all ${homeState === mode.state ? 'bg-brand-500/20 border-brand-500 shadow-[0_0_30px_rgba(20,184,166,0.5)]' : 'glass hover:bg-white/10 border-white/10'}`}
+            className={`w-full p-6 rounded-2xl border text-left transition-all ${homeState === mode.state ? 'bg-brand-500/20 border-brand-500 shadow-[0_0_30px_rgba(20,184,166,0.5)]' : 'glass hover:bg-white/10 border-white/10'}`}
           >
             <div className="flex items-center gap-4">
               <mode.icon size={32} className={homeState === mode.state ? 'text-brand-400' : 'text-gray-400'} />
@@ -155,7 +155,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <GlassCard className="col-span-2 h-[450px] flex flex-col">
+        <GlassCard className="col-span-2 min-h-[400px] h-[450px] md:h-auto flex flex-col">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-semibold text-xl">Energy Analytics</h3>
             <span className="text-xs font-medium px-2 py-1 bg-brand-500/20 text-brand-400 rounded-full">Live Data</span>
@@ -182,7 +182,7 @@ export default function Dashboard() {
           </div>
         </GlassCard>
 
-        <GlassCard className="h-[450px] flex flex-col">
+        <GlassCard className="min-h-[400px] h-[450px] md:h-auto flex flex-col">
           <h3 className="font-semibold text-xl mb-4 flex items-center gap-2">
             <Activity className="text-brand-400" size={20} />
             FSM Live Feed

@@ -45,7 +45,7 @@ export default function Profile() {
         </GlassCard>
 
         <div className="col-span-2 space-y-6">
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <GlassCard className="bg-gradient-to-br from-brand-900/40 to-transparent border-brand-500/30">
               <div className="flex items-center gap-4">
                 <div className="p-4 bg-brand-500/20 rounded-2xl text-brand-400"><Zap size={32} /></div>

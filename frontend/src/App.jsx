@@ -77,7 +77,7 @@ function AppRoutes() {
           initial={{ opacity: 0, y: -50, x: '-50%' }}
           animate={{ opacity: 1, y: 0, x: '-50%' }}
           exit={{ opacity: 0, y: -50, x: '-50%' }}
-          className="fixed top-6 left-1/2 z-50 flex items-center gap-3 p-4 rounded-xl shadow-[0_0_20px_rgba(0,0,0,0.5)] border bg-dark-800 text-white min-w-[350px]"
+          className="fixed top-6 left-1/2 z-50 flex items-center gap-3 p-4 rounded-xl shadow-[0_0_20px_rgba(0,0,0,0.5)] border bg-dark-800 text-white w-[90vw] max-w-[350px]"
           style={{ borderColor: notification.type === 'alert' ? '#ef4444' : '#14b8a6' }}
         >
           <div className={`p-2 rounded-lg ${notification.type === 'alert' ? 'bg-red-500/20 text-red-500' : 'bg-brand-500/20 text-brand-400'}`}>
