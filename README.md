@@ -75,3 +75,10 @@ npm run dev
 - Database hosted on MongoDB Atlas
 
 
+Author
+
+Sudarshan Gupta
+Isha Srivastava
+Ridhi Bharadwaj
+Jiya Tiwari
+
