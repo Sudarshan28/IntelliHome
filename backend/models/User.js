@@ -12,6 +12,7 @@ const UserSchema = new mongoose.Schema({
     timezone: String
   },
   deviceInfo: { type: String },
+  homeMode: { type: String, enum: ['HOME', 'AWAY', 'NIGHT', 'SLEEP', 'ALERT'], default: 'HOME' },
   settings: {
     pushNotifs: { type: Boolean, default: true },
     emailAlerts: { type: Boolean, default: false },

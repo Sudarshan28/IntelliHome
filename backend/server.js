@@ -24,8 +24,8 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/intellihome
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => {
-  console.log('MongoDB Connected to local/intellihome');
+.then((conn) => {
+  console.log(`MongoDB Connected: ${conn.connection.host}`);
   seedAutomations();
 })
 .catch(err => console.error('MongoDB Connection Error:', err));
@@ -46,6 +46,11 @@ app.use('/api/fsm', require('./routes/fsmRoutes'));
 app.use('/api/settings', require('./routes/settingsRoutes'));
 app.use('/api/analytics', require('./routes/analyticsRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+
+// Root route for Render deployment health check
+app.get('/', (req, res) => {
+  res.send('IntelliHome Backend Running');
+});
 
 const PORT = process.env.PORT || 5002;
 server.listen(PORT, () => {
