@@ -16,7 +16,7 @@ export default function Sidebar() {
   const location = useLocation();
 
   return (
-    <aside className="w-64 glass border-r border-white/5 flex flex-col h-full relative z-20">
+    <aside className="hidden md:flex w-64 glass border-r border-white/5 flex-col h-full relative z-20">
       <div className="p-6 flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-brand-500 shadow-[0_0_15px_rgba(20,184,166,0.6)] flex items-center justify-center">
           <Home size={18} className="text-white" />

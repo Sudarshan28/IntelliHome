@@ -21,6 +21,7 @@ import Profile from './pages/Profile';
 // Components
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
+import MobileNav from './components/MobileNav';
 
 const pageVariants = {
   initial: { opacity: 0, y: 30, scale: 0.98, rotateX: 5 },
@@ -103,7 +104,7 @@ function AppRoutes() {
           <Sidebar />
           <div className="flex-1 flex flex-col relative z-0 overflow-y-auto overflow-x-hidden">
             <Topbar />
-            <main className="flex-1 p-6 lg:p-10 z-10 relative">
+            <main className="flex-1 p-6 pb-24 md:pb-6 lg:p-10 z-10 relative">
               <div className="absolute inset-0 bg-brand-500/5 blur-[120px] rounded-full pointer-events-none" />
               <Routes location={location} key={location.pathname}>
                 <Route path="/dashboard" element={<ProtectedRoute><PageWrapper><Dashboard /></PageWrapper></ProtectedRoute>} />
@@ -116,6 +117,7 @@ function AppRoutes() {
               </Routes>
             </main>
           </div>
+          <MobileNav />
         </div>
       )}
     </AnimatePresence>

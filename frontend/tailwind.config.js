@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        outfit: ['Outfit', 'sans-serif'],
+        sans: ['Outfit', 'sans-serif'],
       },
       colors: {
         brand: {

@@ -72,11 +72,11 @@ export default function Landing() {
             <span className="text-sm font-medium text-gray-300">IntelliHome OS 2.0 is live</span>
           </motion.div>
 
-          <h2 className="text-6xl md:text-8xl font-extrabold mb-8 tracking-tighter leading-tight">
-            The intelligent <br/>
+          <h2 className="text-5xl md:text-7xl lg:text-8xl font-extrabold mb-8 tracking-tighter leading-tight">
+            The intelligent <br className="hidden sm:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-500">
               operating system
-            </span><br/>
+            </span><br className="hidden sm:block" />
             for your home.
           </h2>
           
