@@ -74,6 +74,4 @@ npm run dev
 - Backend deployed on Render
 - Database hosted on MongoDB Atlas
 
-## 👨‍💻 Author
 
-Sudarshan Gupta
