@@ -23,9 +23,10 @@ export default function Login() {
         login(data.token, data.user);
         navigate('/dashboard');
       } else {
-        alert(data.msg);
+        alert(data.msg || data.error || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
+      alert('Network error: Could not reach the server.');
       console.error(err);
     }
   };

@@ -24,9 +24,10 @@ export default function Register() {
         login(data.token, data.user);
         navigate('/dashboard');
       } else {
-        alert(data.msg);
+        alert(data.msg || data.error || 'Registration failed. Please check the backend connection.');
       }
     } catch (err) {
+      alert('Network error: Could not reach the server.');
       console.error(err);
     }
   };
