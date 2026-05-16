@@ -20,7 +20,7 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
-mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/intellihome', {
+mongoose.connect('mongodb+srv://IntelliHomeadmin:Krish9435@cluster0.ksv6ar5.mongodb.net/intellihome?appName=Cluster0', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
