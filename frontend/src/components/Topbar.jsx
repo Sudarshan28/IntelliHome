@@ -179,7 +179,7 @@ export default function Topbar() {
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute top-14 right-12 w-80 bg-dark-800 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50"
+              className="absolute top-14 right-0 md:right-12 w-[85vw] sm:w-80 bg-dark-800 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 origin-top-right"
             >
               <div className="p-4 border-b border-white/5 flex justify-between items-center bg-dark-900/50">
                 <h3 className="font-bold text-white">Notifications</h3>
