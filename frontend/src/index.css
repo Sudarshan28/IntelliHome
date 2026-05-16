@@ -19,10 +19,12 @@ body {
   margin: 0;
   background-color: #09090b;
   color: #fafafa;
+  overflow-x: hidden;
 }
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 /* Custom Scrollbar */

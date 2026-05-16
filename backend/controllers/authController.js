@@ -27,7 +27,8 @@ exports.register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const location = await getLocation(ip);
+    // Default location for instant login
+    const defaultLocation = { city: 'Unknown', country: 'Unknown', timezone: 'UTC' };
     
     const parser = new UAParser(req.headers['user-agent']);
     const browser = parser.getBrowser().name || 'Unknown Browser';
@@ -39,15 +40,22 @@ exports.register = async (req, res) => {
       email, 
       password: hashedPassword,
       lastLogin: Date.now(),
-      location,
+      location: defaultLocation,
       deviceInfo
     });
     await user.save();
+    
+    // Background task to update location
+    getLocation(ip).then(loc => {
+      if (loc.city !== 'Unknown') {
+        User.findByIdAndUpdate(user.id, { location: loc }).catch(console.error);
+      }
+    });
 
     const payload = { user: { id: user.id } };
     const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret123', { expiresIn: '1h' });
 
-    res.status(201).json({ token, user: { id: user.id, name, email, location, settings: user.settings } });
+    res.status(201).json({ token, user: { id: user.id, name, email, location: defaultLocation, settings: user.settings } });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: err.message, stack: err.stack });
@@ -64,7 +72,6 @@ exports.login = async (req, res) => {
     if (!isMatch) return res.status(400).json({ msg: 'Invalid Credentials' });
 
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const location = await getLocation(ip);
     
     const parser = new UAParser(req.headers['user-agent']);
     const browser = parser.getBrowser().name || 'Unknown Browser';
@@ -72,14 +79,20 @@ exports.login = async (req, res) => {
     const deviceInfo = `${browser} on ${os}`;
 
     user.lastLogin = Date.now();
-    user.location = location;
     user.deviceInfo = deviceInfo;
     await user.save();
+
+    // Background task to update location without lagging the login
+    getLocation(ip).then(loc => {
+      if (loc.city !== 'Unknown') {
+        User.findByIdAndUpdate(user.id, { location: loc }).catch(console.error);
+      }
+    });
 
     const payload = { user: { id: user.id } };
     const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret123', { expiresIn: '1h' });
 
-    res.json({ token, user: { id: user.id, name: user.name, email, location, settings: user.settings } });
+    res.json({ token, user: { id: user.id, name: user.name, email, location: user.location, settings: user.settings } });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: err.message, stack: err.stack });

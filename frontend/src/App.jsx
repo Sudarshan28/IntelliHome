@@ -23,9 +23,9 @@ import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 
 const pageVariants = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -20 }
+  initial: { opacity: 0, y: 30, scale: 0.98, rotateX: 5 },
+  animate: { opacity: 1, y: 0, scale: 1, rotateX: 0 },
+  exit: { opacity: 0, y: -30, scale: 0.98, rotateX: -5 }
 };
 
 const PageWrapper = ({ children }) => (
@@ -34,8 +34,9 @@ const PageWrapper = ({ children }) => (
     initial="initial"
     animate="animate"
     exit="exit"
-    transition={{ duration: 0.3 }}
-    className="h-full"
+    transition={{ duration: 0.5, type: 'spring', bounce: 0.3 }}
+    className="h-full origin-bottom"
+    style={{ perspective: 1000 }}
   >
     {children}
   </motion.div>

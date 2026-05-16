@@ -10,8 +10,8 @@ const FeatureCard = ({ icon: Icon, title, desc, delay }) => {
       initial={{ opacity: 0, y: 50 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-100px" }}
-      transition={{ duration: 0.8, delay }}
-      whileHover={{ scale: 1.05, rotateX: 5, rotateY: 5 }}
+      transition={{ duration: 0.8, delay, type: 'spring', bounce: 0.4 }}
+      whileHover={{ scale: 1.08, rotateX: 10, rotateY: 10, boxShadow: "0px 20px 40px rgba(0,0,0,0.5)" }}
       style={{ perspective: 1000 }}
       className="glass p-8 rounded-3xl border border-white/5 bg-gradient-to-br from-dark-800/80 to-dark-900/80 flex flex-col items-center text-center hover:border-brand-500/30 transition-all cursor-pointer group"
     >
@@ -43,8 +43,8 @@ export default function Landing() {
       <nav className="fixed top-0 w-full p-6 flex justify-between items-center z-50 backdrop-blur-md bg-dark-900/50 border-b border-white/5">
         <h1 className="text-2xl font-bold tracking-tight">Intelli<span className="text-brand-400">Home</span></h1>
         <div className="space-x-4 flex items-center">
-          <Link to="/login" className="text-sm font-semibold text-gray-300 hover:text-white transition-colors">Log in</Link>
-          <Link to="/register" className="bg-white text-black hover:bg-gray-200 px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg hover:shadow-xl">
+          <Link to="/login" className="text-sm font-semibold text-gray-300 hover:text-white hover:scale-110 transition-all inline-block origin-center">Log in</Link>
+          <Link to="/register" className="bg-white text-black hover:bg-gray-200 px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] hover:scale-105 inline-block">
             Get Started
           </Link>
         </div>
@@ -86,9 +86,9 @@ export default function Landing() {
 
           <Link to="/register">
             <motion.button 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="group bg-brand-500 text-white px-8 py-4 rounded-full text-lg font-bold shadow-[0_0_30px_rgba(20,184,166,0.3)] hover:shadow-[0_0_40px_rgba(20,184,166,0.5)] transition-all flex items-center gap-3"
+              whileHover={{ scale: 1.1, boxShadow: "0px 0px 50px rgba(20,184,166,0.6)" }}
+              whileTap={{ scale: 0.9 }}
+              className="group bg-brand-500 text-white px-10 py-5 rounded-full text-xl font-bold shadow-[0_0_30px_rgba(20,184,166,0.3)] transition-all flex items-center gap-3"
             >
               Start Free Trial
               <ArrowRight className="group-hover:translate-x-1 transition-transform" />

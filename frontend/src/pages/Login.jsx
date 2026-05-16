@@ -45,30 +45,30 @@ export default function Login() {
         <p className="text-gray-400 mb-8">Sign in to control your smart home.</p>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+          <motion.div whileFocus={{ scale: 1.02 }} className="origin-left">
             <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
             <input 
               type="email" 
-              className="w-full bg-dark-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition-colors"
+              className="w-full bg-dark-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-brand-500 focus:shadow-[0_0_20px_rgba(20,184,166,0.2)] transition-all"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
             />
-          </div>
-          <div>
+          </motion.div>
+          <motion.div whileFocus={{ scale: 1.02 }} className="origin-left">
             <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
             <input 
               type="password" 
-              className="w-full bg-dark-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-brand-500 transition-colors"
+              className="w-full bg-dark-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-brand-500 focus:shadow-[0_0_20px_rgba(20,184,166,0.2)] transition-all"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
             />
-          </div>
+          </motion.div>
           <motion.button 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full bg-brand-500 text-white font-medium py-3 rounded-lg shadow-[0_0_15px_rgba(20,184,166,0.4)] mt-4"
+            whileHover={{ scale: 1.05, boxShadow: "0px 0px 30px rgba(20,184,166,0.5)" }}
+            whileTap={{ scale: 0.95 }}
+            className="w-full bg-brand-500 text-white font-medium py-3 rounded-lg shadow-[0_0_15px_rgba(20,184,166,0.3)] mt-4 transition-all"
           >
             Sign In
           </motion.button>

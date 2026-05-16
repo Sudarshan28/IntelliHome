@@ -89,14 +89,33 @@ export default function Dashboard() {
       </div>
 
       {/* Top Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={{
+          hidden: { opacity: 0 },
+          visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+          }
+        }}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+      >
         {[
           { label: 'Total Devices', value: devices.length, icon: Power, color: 'text-blue-400' },
           { label: 'Active Devices', value: activeDevices, icon: Activity, color: 'text-brand-400' },
           { label: 'Energy Usage', value: '4.2 kWh', icon: Zap, color: 'text-yellow-400' },
           { label: 'Security', value: homeState === 'ALERT' ? 'BREACHED' : 'Secure', icon: homeState === 'ALERT' ? ShieldAlert : ShieldCheck, color: homeState === 'ALERT' ? 'text-red-500' : 'text-green-400' },
         ].map((stat, i) => (
-          <GlassCard key={i} className="flex items-center justify-between" transition={{ delay: i * 0.1 }}>
+          <motion.div 
+            key={i}
+            variants={{
+              hidden: { opacity: 0, y: 20 },
+              visible: { opacity: 1, y: 0 }
+            }}
+            whileHover={{ scale: 1.05, y: -5 }}
+          >
+            <GlassCard className="flex items-center justify-between h-full">
             <div>
               <p className="text-gray-400 text-sm font-medium">{stat.label}</p>
               <h3 className="text-3xl font-bold mt-1">{stat.value}</h3>
@@ -104,9 +123,9 @@ export default function Dashboard() {
             <div className={`p-4 rounded-2xl bg-dark-800/80 border border-white/5 ${stat.color}`}>
               <stat.icon size={28} />
             </div>
-          </GlassCard>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {/* Quick State Controls */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -117,10 +136,11 @@ export default function Dashboard() {
         ].map((mode, i) => (
           <motion.button
             key={i}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.08, rotateX: 5, boxShadow: "0px 15px 35px rgba(20,184,166,0.4)" }}
+            whileTap={{ scale: 0.92 }}
             onClick={() => changeHomeState(mode.state)}
-            className={`p-6 rounded-2xl border text-left transition-all ${homeState === mode.state ? 'bg-brand-500/20 border-brand-500 shadow-[0_0_20px_rgba(20,184,166,0.3)]' : 'glass hover:bg-white/10 border-white/10'}`}
+            style={{ perspective: 1000 }}
+            className={`p-6 rounded-2xl border text-left transition-all ${homeState === mode.state ? 'bg-brand-500/20 border-brand-500 shadow-[0_0_30px_rgba(20,184,166,0.5)]' : 'glass hover:bg-white/10 border-white/10'}`}
           >
             <div className="flex items-center gap-4">
               <mode.icon size={32} className={homeState === mode.state ? 'text-brand-400' : 'text-gray-400'} />
