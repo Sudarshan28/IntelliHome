@@ -75,10 +75,10 @@ npm run dev
 - Database hosted on MongoDB Atlas
 
 
-Author
+## 👥 Team Members
 
-Sudarshan Gupta
-Isha Srivastava
-Ridhi Bharadwaj
-Jiya Tiwari
+- Sudarshan Gupta
+- Isha Shrivastava
+- Ridhi Bhardwaj
+- Jiya Tiwariya
 
