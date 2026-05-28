@@ -1,16 +1,19 @@
 const mongoose = require('mongoose');
 
 const ConditionSchema = new mongoose.Schema({
-  type: { type: String, enum: ['event', 'state'], required: true },
-  property: { type: String, required: true }, // e.g., 'motion', 'temperature', 'homeMode'
+  type: { type: String, enum: ['event', 'state', 'device'], required: true },
+  deviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Device' }, // specific device
+  deviceType: { type: String }, // e.g. 'printer', 'laptop', 'light'
+  property: { type: String, required: true }, // e.g., 'status', 'onlineTime', 'latency', 'powerUsage', 'homeMode'
   operator: { type: String, enum: ['==', '!=', '>', '<', '>=', '<='], required: true },
   value: { type: mongoose.Schema.Types.Mixed, required: true }
 });
 
 const ActionSchema = new mongoose.Schema({
-  actionType: { type: String, enum: ['device_update', 'notify'], required: true },
+  actionType: { type: String, enum: ['device_update', 'notify', 'report'], required: true },
   deviceType: { type: String }, // e.g., 'light', 'ac', 'alarm'
-  payload: { type: mongoose.Schema.Types.Mixed, required: true } // { status: 'on' } or { title: 'Alert', message: '...' }
+  deviceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Device' },
+  payload: { type: mongoose.Schema.Types.Mixed, required: true } // e.g. { status: 'CONNECTED' } or { title: 'Alert', message: '...' }
 });
 
 const SchedulerSchema = new mongoose.Schema({
@@ -19,6 +22,7 @@ const SchedulerSchema = new mongoose.Schema({
 });
 
 const AutomationSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   name: { type: String, required: true },
   conditions: [ConditionSchema],
   actions: [ActionSchema],
@@ -26,4 +30,4 @@ const AutomationSchema = new mongoose.Schema({
   active: { type: Boolean, default: true }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Automation', AutomationSchema);
+module.exports = mongoose.model('Automation', AutomationSchema, 'automation_rules');

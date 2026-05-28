@@ -5,6 +5,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const { Server } = require('socket.io');
 const seedAutomations = require('./utils/seedAutomations');
+const { startMonitoring } = require('./services/monitoringService');
+const { startPowerCalculator } = require('./services/powerCalculationService');
 
 dotenv.config();
 
@@ -27,6 +29,8 @@ mongoose.connect('mongodb+srv://IntelliHomeadmin:Krish9435@cluster0.ksv6ar5.mong
 .then((conn) => {
   console.log(`MongoDB Connected: ${conn.connection.host}`);
   seedAutomations();
+  startMonitoring(io);
+  startPowerCalculator(io);
 })
 .catch(err => console.error('MongoDB Connection Error:', err));
 

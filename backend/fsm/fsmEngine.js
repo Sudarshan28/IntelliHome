@@ -1,136 +1,210 @@
 const Device = require('../models/Device');
-const AutomationLog = require('../models/AutomationLog');
+const DeviceLog = require('../models/DeviceLog');
 const Automation = require('../models/Automation');
 const notify = require('../utils/notifier');
 
 let globalState = {
-  homeMode: 'HOME', // HOME, AWAY, NIGHT, SLEEP, ALERT
+  homeMode: 'HOME', // HOME, AWAY, NIGHT
 };
-
-// Scheduler memory map (Rule ID -> Timeout ID)
-const activeSchedules = new Map();
 
 const getGlobalState = () => globalState;
 
-const logAction = async (event, action, io) => {
-  const log = new AutomationLog({
-    event,
-    action,
+const logDeviceTransition = async (device, oldState, newState, io, description = '') => {
+  const log = new DeviceLog({
+    deviceId: device._id,
+    deviceName: device.name,
+    event: 'State Transition',
+    action: description || `${device.name} transitioned from ${oldState} to ${newState}`,
     stateAtTime: globalState.homeMode
   });
   await log.save();
   io.emit('fsm_action', log);
+  return log;
 };
 
-const evaluateCondition = (cond, eventPayload, currentState) => {
-  let sourceValue;
-  if (cond.type === 'event') {
-    // If the rule expects 'motion' and this event is 'temperature', it might not match, 
-    // unless the eventPayload contains the property.
-    // For our simplified payload: { eventType: 'motion', value: true }
-    if (cond.property !== eventPayload.eventType) return false;
-    sourceValue = eventPayload.value;
-  } else if (cond.type === 'state') {
-    sourceValue = currentState[cond.property];
+const compareValues = (sourceValue, operator, targetValue) => {
+  const srcNum = Number(sourceValue);
+  const tgtNum = Number(targetValue);
+  
+  // If either is NaN, do a string/boolean compare
+  if (isNaN(srcNum) || isNaN(tgtNum)) {
+    const srcStr = String(sourceValue).toLowerCase();
+    const tgtStr = String(targetValue).toLowerCase();
+    
+    switch (operator) {
+      case '==': return srcStr === tgtStr;
+      case '!=': return srcStr !== tgtStr;
+      default: return false;
+    }
   }
 
-  switch (cond.operator) {
-    case '==': return sourceValue === cond.value;
-    case '!=': return sourceValue !== cond.value;
-    case '>': return sourceValue > cond.value;
-    case '<': return sourceValue < cond.value;
-    case '>=': return sourceValue >= cond.value;
-    case '<=': return sourceValue <= cond.value;
+  switch (operator) {
+    case '==': return srcNum === tgtNum;
+    case '!=': return srcNum !== tgtNum;
+    case '>': return srcNum > tgtNum;
+    case '<': return srcNum < tgtNum;
+    case '>=': return srcNum >= tgtNum;
+    case '<=': return srcNum <= tgtNum;
     default: return false;
   }
 };
 
-const executeAction = async (action, io) => {
-  if (action.actionType === 'device_update') {
-    // For demo purposes, we update all devices of that type.
-    await Device.updateMany({ type: action.deviceType }, action.payload);
-    io.emit('devices_updated', await Device.find());
-  } else if (action.actionType === 'notify') {
-    await notify(action.payload.title, action.payload.message, action.payload.type, io);
+const evaluateCondition = (cond, device, currentState) => {
+  if (cond.type === 'state') {
+    return compareValues(currentState.homeMode, cond.operator, cond.value);
+  }
+  
+  if (cond.type === 'device') {
+    // Check if condition applies to this device
+    if (cond.deviceId && cond.deviceId.toString() !== device._id.toString()) {
+      return false;
+    }
+    if (cond.deviceType && cond.deviceType.toLowerCase() !== device.type.toLowerCase()) {
+      return false;
+    }
+    
+    // Resolve property value
+    let sourceValue;
+    if (cond.property === 'status') {
+      sourceValue = device.status;
+    } else if (cond.property === 'onlineTime') {
+      sourceValue = device.onlineTime / 1000; // convert to seconds or compare in seconds/hours
+    } else if (cond.property === 'latency') {
+      sourceValue = device.latency;
+    } else if (cond.property === 'powerUsage' || cond.property === 'powerRating') {
+      sourceValue = device.powerRating;
+    } else {
+      sourceValue = device[cond.property];
+    }
+    
+    if (sourceValue === undefined) return false;
+    return compareValues(sourceValue, cond.operator, cond.value);
+  }
+  
+  return false;
+};
+
+const executeAction = async (action, device, io) => {
+  try {
+    if (action.actionType === 'device_update') {
+      let query = {};
+      if (action.deviceId) {
+        query._id = action.deviceId;
+      } else if (action.deviceType) {
+        query.type = action.deviceType;
+      } else {
+        return;
+      }
+      
+      const prevDevices = await Device.find(query);
+      await Device.updateMany(query, action.payload);
+      const updatedDevices = await Device.find(query);
+      
+      for (const updated of updatedDevices) {
+        const prev = prevDevices.find(d => d._id.toString() === updated._id.toString());
+        if (prev && prev.status !== updated.status) {
+          await transitionDeviceState(updated, prev.status, updated.status, io, `Automation trigger updated status to ${updated.status}`);
+        }
+      }
+      io.emit('devices_updated', await Device.find());
+      
+    } else if (action.actionType === 'notify' || action.actionType === 'report') {
+      const title = action.payload.title || 'Automation Alert';
+      let message = action.payload.message || '';
+      // Inject device properties into title/message
+      message = message.replace(/{device}/g, device.name);
+      
+      await notify(title, message, action.payload.type || 'info', io);
+      
+      // Save notification event in device logs
+      const log = new DeviceLog({
+        deviceId: device._id,
+        deviceName: device.name,
+        event: 'Automation Triggered',
+        action: `Notification sent: "${title} - ${message}"`,
+        stateAtTime: globalState.homeMode
+      });
+      await log.save();
+      io.emit('fsm_action', log);
+    }
+  } catch (err) {
+    console.error('Error executing automation action:', err);
   }
 };
 
-const processFSMEvent = async (eventPayload, io) => {
-  // eventPayload: { eventType: 'motion', value: true }
-  
-  // 1. Cancel any pending scheduled tasks that expect this event
-  for (let [ruleId, task] of activeSchedules.entries()) {
-    if (task.cancelEvent === eventPayload.eventType) {
-      clearTimeout(task.timeoutId);
-      activeSchedules.delete(ruleId);
-      console.log(`Cancelled scheduled task for rule: ${ruleId}`);
-    }
-  }
-
-  // 2. Fetch active rules
-  const rules = await Automation.find({ active: true });
-
-  for (let rule of rules) {
-    // Evaluate all conditions (AND logic)
-    let conditionsMet = true;
-    for (let cond of rule.conditions) {
-      if (!evaluateCondition(cond, eventPayload, globalState)) {
-        conditionsMet = false;
-        break;
-      }
-    }
-
-    if (conditionsMet) {
-      await logAction(eventPayload.eventType, `Rule Executed: ${rule.name}`, io);
-
-      // Execute actions immediately
-      for (let action of rule.actions) {
-        await executeAction(action, io);
-      }
-
-      // Handle Scheduling (e.g., Turn off lights after 5 mins of no motion)
-      if (rule.scheduler && rule.scheduler.delayMs) {
-        // Clear existing schedule for this rule if any
-        if (activeSchedules.has(rule._id.toString())) {
-          clearTimeout(activeSchedules.get(rule._id.toString()).timeoutId);
+const processAutomationRules = async (device, io) => {
+  try {
+    const rules = await Automation.find({ active: true });
+    
+    for (let rule of rules) {
+      let conditionsMet = true;
+      
+      for (let cond of rule.conditions) {
+        if (!evaluateCondition(cond, device, globalState)) {
+          conditionsMet = false;
+          break;
         }
+      }
 
-        const timeoutId = setTimeout(async () => {
-          // Execution of the delayed payload
-          // For simplicity in this demo, the delayed payload reverses the device update
-          // A robust system would specify exactly what the delay payload is.
-          // Here, we hardcode the specific reversal for the "motion lights" rule.
-          if (rule.name === 'Motion triggers Lights ON') {
-            await Device.updateMany({ type: 'light' }, { status: 'off' });
-            io.emit('devices_updated', await Device.find());
-            await logAction('Scheduled Timeout', `Reverted rule: ${rule.name}`, io);
-          }
-          activeSchedules.delete(rule._id.toString());
-        }, rule.scheduler.delayMs);
-
-        activeSchedules.set(rule._id.toString(), {
-          timeoutId,
-          cancelEvent: rule.scheduler.cancelOnEvent
-        });
+      if (conditionsMet) {
+        console.log(`Automation rule "${rule.name}" triggered by device "${device.name}".`);
+        for (let action of rule.actions) {
+          await executeAction(action, device, io);
+        }
       }
     }
+  } catch (err) {
+    console.error('Error processing automation rules:', err);
   }
+};
+
+const transitionDeviceState = async (device, oldState, newState, io, description = '') => {
+  console.log(`FSM transition: ${device.name} [${oldState} -> ${newState}]`);
+  
+  // 1. Persist FSM state transition log
+  await logDeviceTransition(device, oldState, newState, io, description);
+  
+  // 2. Trigger screen popups for online/offline transitions
+  if (newState === 'CONNECTED' && oldState !== 'CONNECTED') {
+    await notify('Device Online', `${device.name} (${device.ip}) is now online and monitored.`, 'success', io);
+  } else if (newState === 'OFFLINE' && oldState !== 'OFFLINE') {
+    await notify('Device Offline', `${device.name} (${device.ip}) went offline.`, 'alert', io);
+  }
+  
+  // 3. Process automation rules triggered by the device state change
+  await processAutomationRules(device, io);
 };
 
 const setGlobalState = async (newState, io) => {
+  const oldMode = globalState.homeMode;
   globalState.homeMode = newState;
-  await logAction('User Command', `Changed mode to ${newState}`, io);
   
-  // Execute state-based logic (can be expanded via DB rules too, but hardcoded here for fundamental mode switching)
+  const log = new DeviceLog({
+    event: 'System Mode Change',
+    action: `Changed mode from ${oldMode} to ${newState}`,
+    stateAtTime: newState
+  });
+  await log.save();
+  io.emit('fsm_action', log);
+  
+  // If Away, we can mark devices as IDLE or simulate power savings
   if (newState === 'AWAY') {
-    await Device.updateMany({}, { status: 'off' });
-    io.emit('devices_updated', await Device.find());
-  } else if (newState === 'NIGHT') {
-    await Device.updateMany({ type: 'light' }, { status: 'off' });
-    io.emit('devices_updated', await Device.find());
+    // Optionally dim lights or set devices to IDLE/CONNECTED instead of ACTIVE
+    const devices = await Device.find({ status: 'ACTIVE' });
+    for (const device of devices) {
+      const oldStatus = device.status;
+      device.status = 'CONNECTED'; // drop from active to connected
+      await device.save();
+      await transitionDeviceState(device, oldStatus, 'CONNECTED', io, 'System armed to AWAY; lowered device activity');
+    }
   }
   
   io.emit('fsm_state_change', globalState.homeMode);
 };
 
-module.exports = { getGlobalState, processFSMEvent, setGlobalState };
+module.exports = { 
+  getGlobalState, 
+  setGlobalState, 
+  transitionDeviceState,
+  processAutomationRules
+};

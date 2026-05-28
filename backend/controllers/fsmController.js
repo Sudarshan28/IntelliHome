@@ -1,5 +1,5 @@
 const { setGlobalState, getGlobalState } = require('../fsm/fsmEngine');
-const AutomationLog = require('../models/AutomationLog');
+const DeviceLog = require('../models/DeviceLog');
 
 exports.getState = (req, res) => {
   res.json(getGlobalState());
@@ -17,7 +17,7 @@ exports.setState = async (req, res) => {
 
 exports.getLogs = async (req, res) => {
   try {
-    const logs = await AutomationLog.find().sort({ timestamp: -1 }).limit(50);
+    const logs = await DeviceLog.find().sort({ timestamp: -1 }).limit(50);
     res.json(logs);
   } catch (err) {
     res.status(500).send('Server Error');

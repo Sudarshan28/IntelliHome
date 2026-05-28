@@ -1,59 +1,44 @@
 const Automation = require('../models/Automation');
 
-const defaultRules = [
+const realDefaultRules = [
   {
-    name: 'Motion triggers Lights ON',
+    name: 'Printer Offline Alert',
     conditions: [
-      { type: 'event', property: 'motion', operator: '==', value: true }
+      { type: 'device', deviceType: 'printer', property: 'status', operator: '==', value: 'OFFLINE' }
     ],
     actions: [
-      { actionType: 'device_update', deviceType: 'light', payload: { status: 'on' } }
-    ],
-    scheduler: {
-      delayMs: 5000, // 5 seconds for simulation (would be 300000 / 5 mins in prod)
-      cancelOnEvent: 'motion'
-    }
-  },
-  {
-    name: 'High Temp triggers AC ON',
-    conditions: [
-      { type: 'event', property: 'temperature', operator: '>', value: 26 }
-    ],
-    actions: [
-      { actionType: 'device_update', deviceType: 'ac', payload: { status: 'on', 'metrics.temperature': 22 } }
+      { actionType: 'notify', payload: { title: 'Printer Offline', message: '{device} is offline. Please check its connection.', type: 'warning' } }
     ]
   },
   {
-    name: 'Smoke triggers Alarm & Notify',
+    name: 'Laptop Screen Time warning',
     conditions: [
-      { type: 'event', property: 'smoke', operator: '==', value: true }
+      { type: 'device', deviceType: 'laptop', property: 'onlineTime', operator: '>', value: 18000 } // 5h (18000 seconds)
     ],
     actions: [
-      { actionType: 'device_update', deviceType: 'alarm', payload: { status: 'triggered' } },
-      { actionType: 'notify', payload: { title: 'Fire Alert', message: 'Smoke detected! Evacuate immediately.', type: 'alert' } }
+      { actionType: 'notify', payload: { title: 'Usage Report', message: '{device} has been online for over 5 hours. Generating usage report.', type: 'info' } }
     ]
   },
   {
-    name: 'Door opens while AWAY triggers Alarm',
+    name: 'ESP32 Overload Warning',
     conditions: [
-      { type: 'event', property: 'door', operator: '==', value: true },
-      { type: 'state', property: 'homeMode', operator: '==', value: 'AWAY' }
+      { type: 'device', deviceType: 'sensor', property: 'powerUsage', operator: '>', value: 30 } // > 30 Watts
     ],
     actions: [
-      { actionType: 'device_update', deviceType: 'alarm', payload: { status: 'triggered' } },
-      { actionType: 'notify', payload: { title: 'Security Breach', message: 'Front door opened while system is armed.', type: 'alert' } }
+      { actionType: 'notify', payload: { title: 'Power Threshold Exceeded', message: '{device} power usage is higher than threshold.', type: 'alert' } }
     ]
   }
 ];
 
 const seedAutomations = async () => {
   try {
-    const count = await Automation.countDocuments();
-    if (count === 0) {
-      console.log('Seeding default IFTTT rules...');
-      await Automation.insertMany(defaultRules);
-      console.log('Default rules seeded successfully.');
-    }
+    // Clear existing mock/fake rules
+    await Automation.deleteMany({});
+    console.log('Cleared old automation rules.');
+    
+    // Seed real default rules
+    await Automation.insertMany(realDefaultRules);
+    console.log('Seeded real device-based automation rules successfully.');
   } catch (err) {
     console.error('Failed to seed automations:', err);
   }
