@@ -173,6 +173,16 @@ const transitionDeviceState = async (device, oldState, newState, io, description
   
   // 3. Process automation rules triggered by the device state change
   await processAutomationRules(device, io);
+
+  // 4. If this is a virtual device, push the status update to it
+  if (device.vendor === 'Virtual Emulator') {
+    try {
+      const { controlVirtualDevice } = require('../deviceManager');
+      await controlVirtualDevice(device._id, { status: newState }, io);
+    } catch (err) {
+      console.error('Failed to notify virtual device of state transition:', err);
+    }
+  }
 };
 
 const setGlobalState = async (newState, io) => {

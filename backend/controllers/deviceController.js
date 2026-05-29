@@ -117,6 +117,10 @@ exports.updateDeviceStatus = async (req, res) => {
     const io = req.app.get('io');
     await transitionDeviceState(device, prevStatus, status, io, `User manual override: status updated to ${status}`);
     
+    // Check and trigger control action on connected virtual client
+    const { controlVirtualDevice } = require('../deviceManager');
+    await controlVirtualDevice(device._id, { status }, io);
+    
     io.emit('devices_updated', await Device.find({ userId: req.user.id }));
     res.json(device);
   } catch (err) {

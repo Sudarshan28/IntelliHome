@@ -6,9 +6,11 @@ import {
   Wifi, Tv, Laptop, Smartphone, Cpu, Printer, Video, 
   Activity, Power, Loader2, ShieldCheck, Zap, AlertCircle, Trash2
 } from 'lucide-react';
+import { io } from 'socket.io-client';
+import DeviceDashboard from '../components/DeviceDashboard';
 
 export default function Devices() {
-  const { token } = useContext(AuthContext);
+  const { token, user } = useContext(AuthContext);
   const [devices, setDevices] = useState([]);
   const [discoveredDevices, setDiscoveredDevices] = useState([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -31,10 +33,24 @@ export default function Devices() {
   };
 
   useEffect(() => {
-    if (token) {
-      fetchRegisteredDevices();
-    }
-  }, [token]);
+    if (!token) return;
+
+    fetchRegisteredDevices();
+
+    const socket = io(`${import.meta.env.VITE_API_URL}`);
+    
+    socket.on('devices_updated', (updatedDevices) => {
+      if (Array.isArray(updatedDevices)) {
+        const currentUserId = user?._id || user?.id;
+        const filtered = updatedDevices.filter(d => d.userId === currentUserId && d.status !== 'DISCOVERED');
+        setDevices(filtered);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [token, user]);
 
   const discoverDevices = async () => {
     setIsScanning(true);
@@ -101,6 +117,25 @@ export default function Devices() {
       }
     } catch (err) {
       console.error('Disconnect failed:', err);
+    }
+  };
+
+  const toggleDevicePower = async (device) => {
+    const newStatus = device.status === 'ACTIVE' ? 'CONNECTED' : 'ACTIVE';
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/devices/${device._id}/status`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-auth-token': token 
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+        fetchRegisteredDevices();
+      }
+    } catch (err) {
+      console.error('Failed to toggle device power:', err);
     }
   };
 
@@ -301,6 +336,20 @@ export default function Devices() {
                       {device.status}
                     </span>
 
+                    {device.status !== 'OFFLINE' && (
+                      <button 
+                        onClick={() => toggleDevicePower(device)}
+                        className={`p-2 rounded-xl transition-all border ${
+                          device.status === 'ACTIVE' 
+                            ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)]' 
+                            : 'bg-dark-800 border-white/10 hover:border-white/20 text-gray-400 hover:text-gray-200'
+                        }`}
+                        title={device.status === 'ACTIVE' ? "Turn OFF" : "Turn ON"}
+                      >
+                        <Power size={16} />
+                      </button>
+                    )}
+
                     <button 
                       onClick={() => {
                         setShowMonitorId(isMonitorOpen ? null : device._id);
@@ -384,7 +433,7 @@ export default function Devices() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-6 md:gap-10 pr-2">
+                        <div className="grid grid-cols-3 gap-6 md:gap-8 pr-2">
                           <div>
                             <p className="text-[10px] text-gray-500 uppercase font-semibold">Device Load</p>
                             <p className="text-xl font-bold text-cyan-400 font-mono mt-0.5">{device.powerRating} W</p>
@@ -393,6 +442,12 @@ export default function Devices() {
                             <p className="text-[10px] text-gray-500 uppercase font-semibold">Est. Energy Used</p>
                             <p className="text-xl font-bold text-white font-mono mt-0.5">
                               {((device.powerRating * (device.uptime || 0)) / 3600000).toFixed(4)} kWh
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-500 uppercase font-semibold">Est. Cost</p>
+                            <p className="text-xl font-bold text-brand-400 font-mono mt-0.5">
+                              ₹{(((device.powerRating * (device.uptime || 0)) / 3600000) * 8).toFixed(2)}
                             </p>
                           </div>
                         </div>
@@ -415,6 +470,9 @@ export default function Devices() {
           )}
         </div>
       </div>
+
+      {/* Onboarding Device Dashboard */}
+      <DeviceDashboard />
     </div>
   );
 }

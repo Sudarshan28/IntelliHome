@@ -68,7 +68,11 @@ export default function Dashboard() {
       });
 
     socket.on('devices_updated', (updatedDevices) => {
-      setDevices(updatedDevices);
+      if (Array.isArray(updatedDevices)) {
+        const currentUserId = user?._id || user?.id;
+        const filtered = updatedDevices.filter(d => d.userId === currentUserId);
+        setDevices(filtered);
+      }
     });
 
     socket.on('fsm_action', (log) => {

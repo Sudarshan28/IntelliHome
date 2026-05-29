@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IntelliHome Device Client Emulator</title>
+  <!-- Load Socket.io Client from CDN -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <!-- Import Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-color: #09090b;
+      --card-bg: rgba(24, 24, 27, 0.6);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-color: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --brand: #14b8a6;
+      --brand-glow: rgba(20, 184, 166, 0.15);
+      --success: #10b981;
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.1);
+      --success-bg: rgba(16, 185, 129, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding: 20px;
+    }
+
+    /* Ambient Background Glows */
+    .glow-bg {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, var(--brand) 0%, transparent 70%);
+      opacity: 0.15;
+      filter: blur(80px);
+      z-index: 1;
+      pointer-events: none;
+    }
+    .glow-left { top: 10%; left: 10%; }
+    .glow-right { bottom: 10%; right: 10%; }
+
+    /* Main Container */
+    .container {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 450px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 24px;
+      padding: 30px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header p {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-control {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: white;
+      font-size: 15px;
+      font-weight: 500;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 10px rgba(20, 184, 166, 0.25);
+    }
+
+    select.form-control option {
+      background-color: #18181b;
+      color: white;
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--brand) 0%, #0d9488 100%);
+      border: none;
+      border-radius: 12px;
+      padding: 14px;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(20, 184, 166, 0.3);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(20, 184, 166, 0.5);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      box-shadow: none;
+      margin-top: 12px;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: none;
+    }
+
+    /* Live Emulator Screen */
+    .emulator-screen {
+      display: none;
+      text-align: center;
+      transition: all 0.5s ease;
+    }
+
+    /* State Indicator Screen Panel */
+    .state-panel {
+      border-radius: 20px;
+      padding: 30px 20px;
+      margin-bottom: 25px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Active ON State styles */
+    .state-panel.active {
+      background: radial-gradient(circle at center, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.03) 100%);
+      border-color: rgba(16, 185, 129, 0.3);
+      box-shadow: 0 0 30px rgba(16, 185, 129, 0.15) inset, 0 10px 20px rgba(16, 185, 129, 0.05);
+    }
+
+    /* Standby OFF State styles */
+    .state-panel.standby {
+      background: radial-gradient(circle at center, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.03) 100%);
+      border-color: rgba(239, 68, 68, 0.3);
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.15) inset, 0 10px 20px rgba(239, 68, 68, 0.05);
+    }
+
+    .state-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+      border: 1px solid transparent;
+    }
+
+    .state-panel.active .state-badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.2);
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+    }
+
+    .state-panel.standby .state-badge {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.2);
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+    }
+
+    .state-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .state-panel.active .state-dot {
+      background-color: var(--success);
+      animation: pulse 1.5s infinite;
+    }
+
+    .state-panel.standby .state-dot {
+      background-color: var(--danger);
+    }
+
+    .big-status {
+      font-size: 48px;
+      font-weight: 900;
+      letter-spacing: -1px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .state-panel.active .big-status {
+      color: #34d399;
+      text-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+    }
+
+    .state-panel.standby .big-status {
+      color: #f87171;
+      text-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+    }
+
+    .wattage-tag {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .wattage-val {
+      color: white;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+    }
+
+    /* Telemetry Grid */
+    .telemetry-grid {
+      display: grid;
+      grid-template-cols: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .telemetry-card {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+      text-align: left;
+    }
+
+    .telemetry-card .label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .telemetry-card .value {
+      font-size: 20px;
+      font-weight: 700;
+      margin-top: 6px;
+      color: white;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .telemetry-card .value-currency {
+      color: var(--brand);
+    }
+
+    /* Meta Info */
+    .meta-box {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 15px;
+      margin-bottom: 25px;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .meta-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .meta-label {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .meta-value {
+      font-weight: 600;
+      color: white;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Status Notifications */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #18181b;
+      border: 1px solid var(--border-color);
+      padding: 12px 24px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      z-index: 100;
+      opacity: 0;
+      transition: all 0.3s ease;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .toast-success { border-color: rgba(16, 185, 129, 0.3); color: #34d399; }
+    .toast-error { border-color: rgba(239, 68, 68, 0.3); color: #f87171; }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .pulse-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--brand);
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse-brand 1.5s infinite;
+    }
+
+    @keyframes pulse-brand {
+      0% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(20, 184, 166, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); }
+    }
+
+    .pulse-panel-animation {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 60%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+
+    .state-panel.active .pulse-panel-animation {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-bg glow-left"></div>
+  <div class="glow-bg glow-right"></div>
+
+  <div class="container">
+    <!-- Setup / Connect Form Card -->
+    <div id="setup-card">
+      <div class="header">
+        <h1>IntelliHome</h1>
+        <p>Real Virtual Device Emulator</p>
+      </div>
+
+      <form id="connect-form" onsubmit="connectToHub(event)">
+        <div class="form-group">
+          <label for="deviceId">Device MAC / unique id</label>
+          <input type="text" id="deviceId" class="form-control" placeholder="e.g. phone_sudarshan" required>
+        </div>
+
+        <div class="form-group">
+          <label for="deviceName">Display Label</label>
+          <input type="text" id="deviceName" class="form-control" placeholder="e.g. Sudarshan's Phone" required>
+        </div>
+
+        <div class="form-group">
+          <label for="deviceType">Device Type (Wattage)</label>
+          <select id="deviceType" class="form-control" onchange="updateWattagePreview()" required>
+            <option value="phone">Smartphone (18W)</option>
+            <option value="laptop">Laptop (65W)</option>
+            <option value="fan">Ceiling Fan (75W)</option>
+            <option value="light">Smart LED Light (15W)</option>
+            <option value="tv">Smart TV (120W)</option>
+            <option value="printer">Laser Printer (400W)</option>
+            <option value="ac">Air Conditioner (1500W)</option>
+            <option value="fridge">Refrigerator (350W)</option>
+            <option value="heater">Room Heater (1500W)</option>
+            <option value="pc">Desktop PC (500W)</option>
+            <option value="other">Generic Appliance (75W)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="backendUrl">IntelliHome backend URL</label>
+          <input type="url" id="backendUrl" class="form-control" placeholder="e.g. http://localhost:5002" required>
+        </div>
+
+        <div class="form-group" style="display:none;">
+          <label for="userId">User ID</label>
+          <input type="text" id="userId" class="form-control">
+        </div>
+
+        <button type="submit" class="btn">
+          Connect to IntelliHome
+        </button>
+      </form>
+    </div>
+
+    <!-- Active Emulator Dashboard -->
+    <div id="emulator-card" class="emulator-screen">
+      <div class="header">
+        <h1 id="screen-title">Device Connected</h1>
+        <p><span class="pulse-dot"></span>Active Telemetry Socket Stream</p>
+      </div>
+
+      <!-- State Glow Panel -->
+      <div id="state-panel" class="state-panel standby">
+        <div class="pulse-panel-animation"></div>
+        <div class="state-badge">
+          <span class="state-dot"></span>
+          <span id="badge-text">STANDBY / OFF</span>
+        </div>
+        <div id="big-status" class="big-status">OFF</div>
+        <div class="wattage-tag">Wattage: <span id="wattage-val" class="wattage-val">18 W</span></div>
+      </div>
+
+      <!-- Live Counters -->
+      <div class="telemetry-grid">
+        <div class="telemetry-card">
+          <div class="label">Uptime</div>
+          <div id="timer-val" class="value">00:00:00</div>
+        </div>
+        <div class="telemetry-card">
+          <div class="label">Energy Used</div>
+          <div id="energy-val" class="value">0.0000 <span style="font-size:11px;color:var(--text-muted);">kWh</span></div>
+        </div>
+        <div class="telemetry-card" style="grid-column: span 2;">
+          <div class="label">Estimated Electricity Cost (@₹8/unit)</div>
+          <div id="cost-val" class="value value-currency">₹0.00</div>
+        </div>
+      </div>
+
+      <!-- Metadata Box -->
+      <div class="meta-box">
+        <div class="meta-row">
+          <span class="meta-label">Device ID</span>
+          <span id="meta-id" class="meta-value">-</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Appliance Type</span>
+          <span id="meta-type" class="meta-value">-</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Backend Link</span>
+          <span id="meta-url" class="meta-value" style="font-size:11px;">-</span>
+        </div>
+      </div>
+
+      <!-- Manual Controls -->
+      <button id="toggle-btn" class="btn" onclick="toggleLocalState()">
+        Turn Device ON
+      </button>
+
+      <button class="btn btn-secondary" onclick="disconnectFromHub()">
+        Unpair & Disconnect
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div id="toast" class="toast"></div>
+
+  <script>
+    let socket = null;
+    let dbDeviceId = null; // Stored from registration success
+    let deviceState = 'CONNECTED'; // CONNECTED (OFF), ACTIVE (ON), OFFLINE
+    let uptimeSeconds = 0;
+    let telemetryInterval = null;
+    let timerInterval = null;
+    
+    const wattageValues = {
+      'light': 15,
+      'ac': 1500,
+      'fridge': 350,
+      'tv': 120,
+      'pc': 500,
+      'heater': 1500,
+      'printer': 400,
+      'laptop': 65,
+      'phone': 18,
+      'other': 75,
+      'fan': 75
+    };
+
+    // Auto-fill parameters from URL query strings
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const userIdParam = urlParams.get('userId');
+      const backendParam = urlParams.get('backendUrl');
+      const typeParam = urlParams.get('type');
+      const nameParam = urlParams.get('name');
+      const deviceIdParam = urlParams.get('deviceId');
+
+      if (userIdParam) {
+        document.getElementById('userId').value = userIdParam;
+      }
+      
+      // Default backend URL detection: if window.location has port 5173, assume local backend port 5002.
+      // Otherwise assume same host/protocol, or default fallback.
+      let defaultBackend = '';
+      if (backendParam) {
+        defaultBackend = backendParam;
+      } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        defaultBackend = 'http://localhost:5002';
+      } else {
+        // Production fallback: e.g. change frontend domain to backend subdomain/Render equivalent
+        defaultBackend = window.location.origin.replace('frontend', 'backend').replace('-frontend', '-backend');
+      }
+      document.getElementById('backendUrl').value = defaultBackend;
+
+      if (typeParam && wattageValues[typeParam.toLowerCase()]) {
+        document.getElementById('deviceType').value = typeParam.toLowerCase();
+      }
+
+      if (nameParam) {
+        document.getElementById('deviceName').value = nameParam;
+      }
+
+      // Generate a random unique device ID if none provided
+      if (deviceIdParam) {
+        document.getElementById('deviceId').value = deviceIdParam;
+      } else {
+        const randId = Math.floor(1000 + Math.random() * 9000);
+        document.getElementById('deviceId').value = `emulator_${randId}`;
+      }
+
+      // If both userId and backendUrl are available in query params, auto-submit!
+      if (userIdParam && defaultBackend) {
+        showToast('Auto-connecting from dashboard QR scan...', 'success');
+        setTimeout(() => {
+          document.getElementById('connect-form').dispatchEvent(new Event('submit'));
+        }, 800);
+      }
+    });
+
+    function updateWattagePreview() {
+      // Just visually updates form if needed
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      toast.className = `toast toast-${type} show`;
+      toast.innerHTML = message;
+      setTimeout(() => {
+        toast.className = 'toast';
+      }, 3000);
+    }
+
+    function formatTime(totalSeconds) {
+      const hrs = Math.floor(totalSeconds / 3600);
+      const mins = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      return [
+        hrs.toString().padStart(2, '0'),
+        mins.toString().padStart(2, '0'),
+        secs.toString().padStart(2, '0')
+      ].join(':');
+    }
+
+    function updateTelemetryDisplays() {
+      const type = document.getElementById('deviceType').value;
+      const wattage = wattageValues[type] || 50;
+      
+      // Calculate energy: (Watts * hours) / 1000 = (Watts * (seconds / 3600)) / 1000
+      const energyKwh = (wattage * uptimeSeconds) / 3600000;
+      const costRs = energyKwh * 8;
+
+      document.getElementById('timer-val').textContent = formatTime(uptimeSeconds);
+      document.getElementById('energy-val').innerHTML = `${energyKwh.toFixed(5)} <span style="font-size:11px;color:var(--text-muted);">kWh</span>`;
+      document.getElementById('cost-val').textContent = `₹${costRs.toFixed(2)}`;
+    }
+
+    function setUIState(isActive) {
+      const statePanel = document.getElementById('state-panel');
+      const badgeText = document.getElementById('badge-text');
+      const bigStatus = document.getElementById('big-status');
+      const toggleBtn = document.getElementById('toggle-btn');
+
+      if (isActive) {
+        statePanel.className = 'state-panel active';
+        badgeText.textContent = 'ONLINE / ON';
+        bigStatus.textContent = 'ON';
+        toggleBtn.textContent = 'Turn Device OFF';
+        toggleBtn.style.background = 'linear-gradient(135deg, var(--danger) 0%, #dc2626 100%)';
+        toggleBtn.style.boxShadow = '0 4px 15px rgba(239, 68, 68, 0.3)';
+      } else {
+        statePanel.className = 'state-panel standby';
+        badgeText.textContent = 'STANDBY / OFF';
+        bigStatus.textContent = 'OFF';
+        toggleBtn.textContent = 'Turn Device ON';
+        toggleBtn.style.background = 'linear-gradient(135deg, var(--brand) 0%, #0d9488 100%)';
+        toggleBtn.style.boxShadow = '0 4px 15px rgba(20, 184, 166, 0.3)';
+      }
+    }
+
+    function connectToHub(event) {
+      event.preventDefault();
+      
+      const deviceId = document.getElementById('deviceId').value.trim();
+      const name = document.getElementById('deviceName').value.trim();
+      const type = document.getElementById('deviceType').value;
+      const backendUrl = document.getElementById('backendUrl').value.trim();
+      const userId = document.getElementById('userId').value.trim();
+
+      showToast('Initiating Socket.io handshakes...', 'success');
+
+      // Initialize Socket connection
+      try {
+        if (socket) {
+          socket.disconnect();
+        }
+
+        socket = io(backendUrl, {
+          transports: ['websocket', 'polling']
+        });
+
+        socket.on('connect', () => {
+          showToast('Connected! Registering with database...', 'success');
+          socket.emit('register_virtual_device', { deviceId, name, type, userId });
+        });
+
+        socket.on('connect_error', (err) => {
+          console.error(err);
+          showToast(`Connection error: ${err.message}`, 'error');
+        });
+
+        socket.on('registration_success', (res) => {
+          dbDeviceId = res.deviceId;
+          showToast('Device Registered Successfully!', 'success');
+
+          // Transition UI cards
+          document.getElementById('setup-card').style.display = 'none';
+          document.getElementById('emulator-card').style.display = 'block';
+
+          // Set metadata labels
+          document.getElementById('screen-title').textContent = name;
+          document.getElementById('meta-id').textContent = deviceId;
+          document.getElementById('meta-type').textContent = type.toUpperCase() + ` (${wattageValues[type]}W)`;
+          document.getElementById('meta-url').textContent = backendUrl;
+          document.getElementById('wattage-val').textContent = `${wattageValues[type]} W`;
+
+          // Default state starts as CONNECTED (OFF)
+          deviceState = 'CONNECTED';
+          setUIState(false);
+          uptimeSeconds = 0;
+          updateTelemetryDisplays();
+
+          // Start interval tasks
+          startEmulationLoops();
+        });
+
+        socket.on('control_device', (actionPayload) => {
+          console.log('Received socket control action:', actionPayload);
+          if (actionPayload.status) {
+            const shouldBeActive = actionPayload.status === 'ACTIVE';
+            deviceState = actionPayload.status;
+            setUIState(shouldBeActive);
+            showToast(`Server updated status to ${actionPayload.status}`, 'success');
+          }
+        });
+
+        socket.on('disconnect', () => {
+          showToast('Socket connection closed.', 'error');
+          stopEmulationLoops();
+          disconnectFromHub();
+        });
+
+      } catch (err) {
+        showToast(`Failed: ${err.message}`, 'error');
+      }
+    }
+
+    function toggleLocalState() {
+      // Toggle local state and push telemetry immediately
+      if (deviceState === 'ACTIVE') {
+        deviceState = 'CONNECTED';
+        setUIState(false);
+      } else {
+        deviceState = 'ACTIVE';
+        setUIState(true);
+      }
+      
+      updateTelemetryDisplays();
+      sendTelemetryUpdate();
+    }
+
+    function sendTelemetryUpdate() {
+      if (socket && socket.connected && dbDeviceId) {
+        const type = document.getElementById('deviceType').value;
+        const wattage = wattageValues[type] || 50;
+        const energyKwh = (wattage * uptimeSeconds) / 3600000;
+
+        socket.emit('virtual_telemetry', {
+          deviceId: dbDeviceId,
+          status: deviceState,
+          uptime: uptimeSeconds,
+          energyConsumed: parseFloat(energyKwh.toFixed(5))
+        });
+      }
+    }
+
+    function startEmulationLoops() {
+      stopEmulationLoops();
+
+      // Uptime tick loop
+      timerInterval = setInterval(() => {
+        if (deviceState === 'ACTIVE') {
+          uptimeSeconds++;
+          updateTelemetryDisplays();
+        }
+      }, 1000);
+
+      // Socket telemetry sync loop
+      telemetryInterval = setInterval(() => {
+        sendTelemetryUpdate();
+      }, 2000);
+    }
+
+    function stopEmulationLoops() {
+      if (timerInterval) clearInterval(timerInterval);
+      if (telemetryInterval) clearInterval(telemetryInterval);
+    }
+
+    function disconnectFromHub() {
+      stopEmulationLoops();
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+      
+      dbDeviceId = null;
+      deviceState = 'OFFLINE';
+
+      // Restore form display
+      document.getElementById('setup-card').style.display = 'block';
+      document.getElementById('emulator-card').style.display = 'none';
+      showToast('Unregistered from IntelliHome Hub.', 'error');
+    }
+  </script>
+</body>
+</html>

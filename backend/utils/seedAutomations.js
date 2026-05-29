@@ -27,6 +27,17 @@ const realDefaultRules = [
     actions: [
       { actionType: 'notify', payload: { title: 'Power Threshold Exceeded', message: '{device} power usage is higher than threshold.', type: 'alert' } }
     ]
+  },
+  {
+    name: 'Phone Auto OFF Rule',
+    conditions: [
+      { type: 'device', deviceType: 'phone', property: 'status', operator: '==', value: 'ACTIVE' },
+      { type: 'device', deviceType: 'phone', property: 'onlineTime', operator: '>', value: 1800 } // 30 minutes (1800s)
+    ],
+    actions: [
+      { actionType: 'device_update', deviceType: 'phone', payload: { status: 'CONNECTED' } },
+      { actionType: 'notify', payload: { title: 'Auto OFF Fired', message: '{device} has been turned OFF automatically after 30 minutes.', type: 'info' } }
+    ]
   }
 ];
 
