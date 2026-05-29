@@ -1,15 +1,32 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import ParticleBackground from '../components/ParticleBackground';
+import { getBrowserLocation, reverseGeocode } from '../utils/location';
 
 export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [detectedLocation, setDetectedLocation] = useState(null);
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const detectLocation = async () => {
+      try {
+        const coords = await getBrowserLocation();
+        const loc = await reverseGeocode(coords.lat, coords.lon);
+        if (loc) {
+          setDetectedLocation(loc);
+        }
+      } catch (err) {
+        console.warn('Geolocation detection skipped or denied:', err);
+      }
+    };
+    detectLocation();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,7 +34,7 @@ export default function Register() {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password })
+        body: JSON.stringify({ name, email, password, location: detectedLocation })
       });
       const data = await res.json();
       if (res.ok) {

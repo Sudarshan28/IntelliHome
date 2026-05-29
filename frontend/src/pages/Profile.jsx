@@ -1,12 +1,21 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import GlassCard from '../components/GlassCard';
-import { User, Mail, Shield, Zap, Activity, MapPin, Clock, Smartphone } from 'lucide-react';
+import { User, Mail, Shield, Zap, Activity, MapPin, Clock, Smartphone, Loader2 } from 'lucide-react';
 import { useContext, useEffect, useState } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { getBrowserLocation, reverseGeocode } from '../utils/location';
 
 export default function Profile() {
-  const { user, logout, token } = useContext(AuthContext);
+  const { user, setUser, logout, token } = useContext(AuthContext);
   const [stats, setStats] = useState(null);
+
+  // Edit Modal States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editCountry, setEditCountry] = useState('');
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/api/analytics/activity`, {
@@ -15,6 +24,80 @@ export default function Profile() {
     .then(res => res.json())
     .then(setStats);
   }, [token]);
+
+  const formatLastLogin = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
+
+  const handleOpenEditModal = () => {
+    setEditName(user?.name || '');
+    setEditCity(user?.location?.city || '');
+    setEditCountry(user?.location?.country || '');
+    setIsEditModalOpen(true);
+  };
+
+  const handleAutodetect = async () => {
+    setIsDetectingLocation(true);
+    try {
+      const coords = await getBrowserLocation();
+      const loc = await reverseGeocode(coords.lat, coords.lon);
+      if (loc) {
+        setEditCity(loc.city);
+        setEditCountry(loc.country);
+      } else {
+        alert('Could not reverse geocode your coordinates.');
+      }
+    } catch (err) {
+      alert('Could not detect location. Please check your browser permissions.');
+      console.error(err);
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-auth-token': token
+        },
+        body: JSON.stringify({
+          name: editName,
+          location: {
+            city: editCity,
+            country: editCountry
+          }
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUser(data);
+        setIsEditModalOpen(false);
+      } else {
+        alert(data.msg || 'Failed to update profile.');
+      }
+    } catch (err) {
+      alert('Network error: Could not reach the server.');
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-8 pb-10">
@@ -34,12 +117,23 @@ export default function Profile() {
             <Mail size={16} /> {user?.email}
           </p>
           <div className="mt-4 text-sm text-gray-500 space-y-2 text-left bg-dark-900/50 p-4 rounded-xl w-full">
-            <p className="flex items-center gap-2"><MapPin size={14} className="text-brand-400"/> {user?.location?.city || 'Unknown City'}, {user?.location?.country || 'Unknown Country'}</p>
-            <p className="flex items-center gap-2"><Clock size={14} className="text-brand-400"/> Last login: {user?.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'N/A'}</p>
-            <p className="flex items-center gap-2 truncate" title={user?.deviceInfo}><Smartphone size={14} className="text-brand-400 flex-shrink-0"/> {user?.deviceInfo || 'Unknown Device'}</p>
+            <p className="flex items-center gap-2">
+              <MapPin size={14} className="text-brand-400" /> {user?.location?.city || 'Unknown City'}, {user?.location?.country || 'Unknown Country'}
+            </p>
+            <p className="flex items-center gap-2">
+              <Clock size={14} className="text-brand-400" /> Last login: {formatLastLogin(user?.lastLogin)}
+            </p>
+            <p className="flex items-center gap-2 truncate" title={user?.deviceInfo}>
+              <Smartphone size={14} className="text-brand-400 flex-shrink-0" /> {user?.deviceInfo || 'Unknown Device'}
+            </p>
           </div>
           <div className="mt-8 flex gap-4 w-full px-6">
-            <button className="flex-1 bg-white/10 hover:bg-white/20 transition-colors py-2 rounded-xl text-sm font-medium">Edit Profile</button>
+            <button 
+              onClick={handleOpenEditModal}
+              className="flex-1 bg-white/10 hover:bg-white/20 transition-colors py-2 rounded-xl text-sm font-medium"
+            >
+              Edit Profile
+            </button>
             <button onClick={logout} className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors py-2 rounded-xl text-sm font-medium">Log out</button>
           </div>
         </GlassCard>
@@ -86,6 +180,106 @@ export default function Profile() {
           </GlassCard>
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      <AnimatePresence>
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            />
+            
+            {/* Modal Card */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-dark-900 border border-white/10 rounded-2xl w-full max-w-md p-6 overflow-hidden z-10"
+            >
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-500 to-blue-500" />
+              
+              <h3 className="text-2xl font-bold text-white mb-2">Edit Profile</h3>
+              <p className="text-sm text-gray-400 mb-6">Update your name and location coordinates.</p>
+              
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full bg-dark-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-brand-500 focus:shadow-[0_0_20px_rgba(20,184,166,0.2)] transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">City / Sector</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Noida Sector 71"
+                      value={editCity}
+                      onChange={(e) => setEditCity(e.target.value)}
+                      className="flex-1 bg-dark-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-brand-500 focus:shadow-[0_0_20px_rgba(20,184,166,0.2)] transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAutodetect}
+                      disabled={isDetectingLocation}
+                      className="px-3 bg-brand-500/20 text-brand-400 border border-brand-500/30 hover:bg-brand-500/30 disabled:opacity-50 transition-colors rounded-lg flex items-center justify-center gap-1.5 text-sm font-medium"
+                      title="Autodetect location using browser geolocation"
+                    >
+                      {isDetectingLocation ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <MapPin size={16} />
+                      )}
+                      <span>Detect</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Country</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. India"
+                    value={editCountry}
+                    onChange={(e) => setEditCountry(e.target.value)}
+                    className="w-full bg-dark-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-brand-500 focus:shadow-[0_0_20px_rgba(20,184,166,0.2)] transition-all"
+                  />
+                </div>
+
+                <div className="flex gap-3 mt-6 pt-4 border-t border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="flex-1 bg-white/5 hover:bg-white/10 text-gray-300 transition-colors py-2 rounded-xl text-sm font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex-1 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white transition-colors py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    {isSaving && <Loader2 size={16} className="animate-spin" />}
+                    <span>Save Changes</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -19,7 +19,7 @@ const getLocation = async (ip) => {
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, location } = req.body;
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ msg: 'User already exists' });
 
@@ -29,6 +29,7 @@ exports.register = async (req, res) => {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     // Default location for instant login
     const defaultLocation = { city: 'Unknown', country: 'Unknown', timezone: 'UTC' };
+    const initialLocation = location || defaultLocation;
     
     const parser = new UAParser(req.headers['user-agent']);
     const browser = parser.getBrowser().name || 'Unknown Browser';
@@ -40,22 +41,24 @@ exports.register = async (req, res) => {
       email, 
       password: hashedPassword,
       lastLogin: Date.now(),
-      location: defaultLocation,
+      location: initialLocation,
       deviceInfo
     });
     await user.save();
     
-    // Background task to update location
-    getLocation(ip).then(loc => {
-      if (loc.city !== 'Unknown') {
-        User.findByIdAndUpdate(user.id, { location: loc }).catch(console.error);
-      }
-    });
+    // Background task to update location if not provided
+    if (!location) {
+      getLocation(ip).then(loc => {
+        if (loc.city !== 'Unknown') {
+          User.findByIdAndUpdate(user.id, { location: loc }).catch(console.error);
+        }
+      });
+    }
 
     const payload = { user: { id: user.id } };
     const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret123', { expiresIn: '1h' });
 
-    res.status(201).json({ token, user: { id: user.id, name, email, location: defaultLocation, settings: user.settings } });
+    res.status(201).json({ token, user: { id: user.id, name, email, location: initialLocation, settings: user.settings } });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: err.message, stack: err.stack });
@@ -64,7 +67,7 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, location } = req.body;
     let user = await User.findOne({ email });
     if (!user) return res.status(400).json({ msg: 'Invalid Credentials' });
 
@@ -80,14 +83,24 @@ exports.login = async (req, res) => {
 
     user.lastLogin = Date.now();
     user.deviceInfo = deviceInfo;
+    if (location) {
+      user.location = {
+        ...user.location,
+        city: location.city,
+        country: location.country,
+        timezone: location.timezone
+      };
+    }
     await user.save();
 
-    // Background task to update location without lagging the login
-    getLocation(ip).then(loc => {
-      if (loc.city !== 'Unknown') {
-        User.findByIdAndUpdate(user.id, { location: loc }).catch(console.error);
-      }
-    });
+    // Background task to update location without lagging the login if not provided
+    if (!location) {
+      getLocation(ip).then(loc => {
+        if (loc.city !== 'Unknown') {
+          User.findByIdAndUpdate(user.id, { location: loc }).catch(console.error);
+        }
+      });
+    }
 
     const payload = { user: { id: user.id } };
     const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret123', { expiresIn: '1h' });
@@ -104,6 +117,31 @@ exports.getMe = async (req, res) => {
     const user = await User.findById(req.user.id).select('-password');
     res.json(user);
   } catch (err) {
+    res.status(500).send('Server error');
+  }
+};
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, location } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ msg: 'User not found' });
+
+    if (name) user.name = name;
+    if (location) {
+      user.location = {
+        ...user.location,
+        city: location.city !== undefined ? location.city : user.location.city,
+        country: location.country !== undefined ? location.country : user.location.country,
+        timezone: location.timezone !== undefined ? location.timezone : user.location.timezone
+      };
+    }
+    await user.save();
+
+    const updatedUser = await User.findById(req.user.id).select('-password');
+    res.json(updatedUser);
+  } catch (err) {
+    console.error('Error updating profile:', err.message);
     res.status(500).send('Server error');
   }
 };
