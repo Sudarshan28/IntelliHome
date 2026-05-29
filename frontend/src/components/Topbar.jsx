@@ -30,10 +30,17 @@ export default function Topbar() {
   };
 
   useEffect(() => {
+    if (!token) return;
+
     fetchNotifications();
 
     const socket = io(`${import.meta.env.VITE_API_URL}`);
+    
     socket.on('new_notification', (notif) => {
+      const currentUserId = user?._id || user?.id;
+      if (notif.userId && currentUserId && notif.userId.toString() !== currentUserId.toString()) {
+        return; // Ignore other users' notifications
+      }
       setNotifications(prev => [notif, ...prev]);
     });
 
@@ -49,7 +56,7 @@ export default function Topbar() {
       socket.disconnect();
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [token]);
+  }, [token, user]);
 
   // Handle Search Input
   useEffect(() => {

@@ -2,8 +2,9 @@ import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-d
 import { AnimatePresence, motion } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import { useState, useEffect, useContext } from 'react';
+import { AuthContext } from './context/AuthContext';
 import { io } from 'socket.io-client';
-import { useState, useEffect } from 'react';
 import { Bell, X } from 'lucide-react';
 
 // Pages
@@ -44,18 +45,30 @@ const PageWrapper = ({ children }) => (
 );
 
 function AppRoutes() {
+  const { token, user } = useContext(AuthContext);
   const location = useLocation();
   const isAuthRoute = ['/', '/login', '/register'].includes(location.pathname);
   const [notification, setNotification] = useState(null);
 
   useEffect(() => {
+    if (!token) {
+      setNotification(null);
+      return;
+    }
+
     // Request Native Notification Permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
     const socket = io(`${import.meta.env.VITE_API_URL}`);
+    
     socket.on('new_notification', (notif) => {
+      const currentUserId = user?._id || user?.id;
+      if (notif.userId && currentUserId && notif.userId.toString() !== currentUserId.toString()) {
+        return; // Ignore notifications meant for other users
+      }
+
       setNotification(notif);
       setTimeout(() => setNotification(null), 5000);
 
@@ -63,12 +76,15 @@ function AppRoutes() {
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(`IntelliHome: ${notif.title}`, {
           body: notif.message,
-          icon: '/favicon.ico' // Assuming there is a default favicon
+          icon: '/favicon.ico'
         });
       }
     });
-    return () => socket.disconnect();
-  }, []);
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [token, user]);
 
   return (
     <AnimatePresence mode="wait">
